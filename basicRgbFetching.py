@@ -17,13 +17,13 @@ import sklearn.datasets
 vidcap = cv2.VideoCapture('movie.mp4')
 success, image = vidcap.read()
 num_of_frames = 0
-average = []
+greens = []
 fps = vidcap.get(cv2.CAP_PROP_FPS)
 blues = []
 reds = []
 while success:
     red, green, blue = cv2.split(image)
-    average.append(np.mean(green))
+    greens.append(np.mean(green))
     blues.append(np.mean(blue))
     reds.append(np.mean(red))
     success, image = vidcap.read()
@@ -31,7 +31,7 @@ while success:
     num_of_frames += 1
 
 plt.subplot(3,1,1)
-plt.plot(average,"green")
+plt.plot(greens,"green")
 plt.subplot(3,1,2)
 plt.plot(reds,"red")
 plt.subplot(3,1,3)
