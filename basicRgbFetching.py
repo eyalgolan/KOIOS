@@ -18,13 +18,13 @@ def parse_roi(image):
         minNeighbors=3,
         minSize=(30, 30)
     )
-
     for (x, y, w, h) in face:
         cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
         roi_color = image[y:y + h, x:x + w]
         print("[INFO] Object found. Saving locally.")
         cv2.imwrite('faces_detected.jpg', roi_color)
-
+        plt.imshow(roi_color)
+        plt.show()
 def parse_RGB(image, vidcap, greens, blues, reds):
     """
     Parses an image to its RGB channels
