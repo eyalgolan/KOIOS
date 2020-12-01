@@ -2,25 +2,61 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2.cv2
+import dlib
 
-def parse_roi(image):
+def parse_forehead(face, image):
+    predictor = dlib.shape_predictor("shape_predictor_81_face_landmarks.dat")
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    x1 = face.left()
+    y1 = face.top()
+    x2 = face.right()
+    y2 = face.bottom()
+
+    landmarks = predictor(gray, face)
+
+    x_pts = []
+    y_pts = []
+
+    for n in range(68, 81):
+        x = landmarks.part(n).x
+        y = landmarks.part(n).y
+
+        x_pts.append(x)
+        y_pts.append(y)
+
+        cv2.circle(image, (x, y), 4, (0, 255, 0), -1)
+
+    x1 = min(x_pts)
+    x2 = max(x_pts)
+    y1 = min(y_pts)
+    y2 = max(y_pts)
+
+    return cv2.rectangle(image, (x1, y1), (x2, y2), (0, 0, 255), 3)
+
+def parse_roi(image, area):
     """
     Upon receiving an image, finds a face (if exists) and writes it as an image
     :param image: the image to be parsed
+    :param area: the desired area of the image
     """
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) # perform grayscale
 
     face_cascade = cv2.CascadeClassifier(
         cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
-    face = face_cascade.detectMultiScale(
+    faces = face_cascade.detectMultiScale(
         gray,
         scaleFactor=1.3,
         minNeighbors=3,
         minSize=(30, 30)
     )
 
-    for (x, y, w, h) in face:
-        cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+    for face in faces:
+        (x, y, w, h) = face
+        if area == "face":
+            cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        elif area == "forehead":
+            parse_forehead(face, image)
+            cv2.rectangle(image, (x, y - 100), (x, y - 100), (0, 0, 255),3)
         roi_color = image[y:y + h, x:x + w]
         print("[INFO] Object found. Saving locally.")
         cv2.imwrite('faces_detected.jpg', roi_color)
@@ -72,7 +108,7 @@ def main():
     reds = []
 
     while success:
-        parse_roi(image) # build image ROI
+        parse_roi(image, "forehead") # build image ROI
         image = cv2.imread("faces_detected.jpg")
         success,image = parse_RGB(image, vidcap, greens, blues, reds)
         num_of_frames += 1
