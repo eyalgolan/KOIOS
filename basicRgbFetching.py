@@ -7,7 +7,10 @@ from matplotlib import figure
 import cv2.cv2
 import sklearn.decomposition as dec
 import scipy
+import logging
 
+FORMAT = '[%(asctime)s] [%(levelname)s] [%(funcName)s] [%(lineno)d] : %(message)s'
+logging.basicConfig(format=FORMAT, level = logging.INFO)
 
 def parse_roi(image):
     """
@@ -15,7 +18,7 @@ def parse_roi(image):
     :param image: the image to be parsed
     """
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)  # perform grayscale
-
+    flag_face_detected = False
     face_cascade = cv2.CascadeClassifier(
         cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
     face = face_cascade.detectMultiScale(
@@ -25,14 +28,16 @@ def parse_roi(image):
         minSize=(30, 30)
     )
     for (x, y, w, h) in face:
+        flag_face_detected = True
         cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
         roi_color = image[y:y + h, x:x + w]
-        print("[INFO] Object found. Saving locally.")
+        #print("[INFO] Object found. Saving locally.")
         cv2.imwrite('faces_detected.jpg', roi_color)
         roi_color_rgb = cv2.cvtColor(roi_color, cv2.COLOR_BGR2RGB)
         plt.imshow(roi_color_rgb)
-        plt.show()
-
+        #plt.show()
+    if not flag_face_detected:
+        logging.warning("No face detected in image")
 
 def parse_RGB(image, vidcap, greens, blues, reds):
     """
@@ -49,7 +54,7 @@ def parse_RGB(image, vidcap, greens, blues, reds):
     blues.append(np.mean(blue))
     reds.append(np.mean(red))
     success, image = vidcap.read()
-    print('Read a new frame: ', success)
+    #print('Read a new frame: ', success)
     return success, image
 
 
@@ -99,6 +104,7 @@ def plot_results(greens, reds, blues, title=""):
 
 
 def extract_hr(greens, reds, blues):
+    logging.info("Extracting HR ...")
     perform_ica(greens, reds, blues)
 
 
@@ -108,6 +114,7 @@ def standardize(lst):
     :param lst: List of values to be standardize.
     :return: An standardized array out of the list.
     """
+    logging.info("Stabilizing results ...")
     mean_val = np.mean(lst)
     std = np.std(lst)
     standardized_arr = (lst - mean_val) / std
@@ -122,6 +129,7 @@ def perform_ica(greens, reds, blues):
     :param blues: Blue signal value.
     :return: --
     """
+    logging.info("Performing ICA ...")
     # ICA process assume that all the values are normalized!.
     normalized_green = standardize(greens)
     normalized_red = standardize(reds)
@@ -137,6 +145,7 @@ def main():
     """
     :return:
     """
+    logging.info("Starting ...")
     vidcap = cv2.VideoCapture('test.mp4')
     success, image = vidcap.read()
     num_of_frames = 1
@@ -145,15 +154,17 @@ def main():
     blues = []
     reds = []
 
+    logging.info("Parsing images ...")
     while success:
         parse_roi(image)  # build image ROI
         image = cv2.imread("faces_detected.jpg")
         success, image = parse_RGB(image, vidcap, greens, blues, reds)
         num_of_frames += 1
 
+    logging.info("Plotting results ...")
     plot_results(greens, reds, blues, "The first results")
     extract_hr(greens, reds, blues)  # didnt understand that warning.
-
+    logging.info("Done")
 
 if __name__ == "__main__":
     main()
