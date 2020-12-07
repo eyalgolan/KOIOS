@@ -14,6 +14,10 @@ class SensorData:
         self.raw_json = self.get_rawdata_json()
         self.sensor_dataframe = self.get_sensor_data()
 
+    def get_video_filename(self):
+        data_dict = json.loads(self.raw_json)
+        video_filename = self.raw_data_dir + data_dict["videos"]["phone"]["files"][0]
+        return data_dict["videos"]["phone"]["files"][0]
     def get_filename(self, in_filename, file_type):
         for fname in os.listdir(self.raw_data_dir):
             if in_filename in fname and file_type in fname:
@@ -52,19 +56,22 @@ class SensorData:
                 "sensors":sensors,
                 "videos":videos}
 
-        raw_json = json.loads(data)
+        raw_json = json.dumps(data, indent=4)
+        with open("data_file.json", "w") as write_file:
+            json.dump(data, write_file, indent=4)
         return raw_json
 
     def get_sensor_data(self):
-        n_sensors = len(self.raw_json["sensors"])
+        data_dict = json.loads(self.raw_json)
+        n_sensors = len(data_dict["sensors"])
 
         logging.info(f'Total number of sensors: {n_sensors}')
         files, df = {}, {}
-        for sname, sdata in self.raw_json['sensors'].items():
+        for sname, sdata in data_dict['sensors'].items():
             for dname, ddata in sdata.items():
                 sensor = (sname, dname)
-                files[sensor] = os.path.join(raw_data_dir, ddata['dir'], ddata['files'][0])
+                files[sensor] = os.path.join(self.raw_data_dir, ddata['dir'], ddata['files'][0])
                 logging.info(f'Sensor: {sname} Data: {dname} File: {files[sensor]}')
-                df[sensor] = mu.get_polar_sensor(files[sensor])
-                display(df[sensor].head(5))
+                #df[sensor] = mu.get_polar_sensor(files[sensor])
+                #display(df[sensor].head(5))
         return df
