@@ -1,5 +1,4 @@
 from typing import List, Any
-
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,6 +7,7 @@ import cv2.cv2
 import sklearn.decomposition as dec
 import scipy
 import logging
+from sensorData import SensorData
 
 FORMAT = '[%(asctime)s] [%(levelname)s] [%(funcName)s] [%(lineno)d] : %(message)s'
 logging.basicConfig(format=FORMAT, level = logging.INFO)
@@ -145,8 +145,13 @@ def main():
     """
     :return:
     """
+    dataset_location = "..\\dataset\\good_sync\\"
+    dir = "perry-all-2"
+    sd = SensorData(dataset_location + dir)
     logging.info("Starting ...")
-    vidcap = cv2.VideoCapture('test.mp4')
+    video_location = dataset_location + "\\" + dir + "\\" + sd.get_video_filename()
+    logging.info("Working on video " + video_location)
+    vidcap = cv2.VideoCapture(video_location)
     success, image = vidcap.read()
     num_of_frames = 1
     fps = vidcap.get(cv2.CAP_PROP_FPS)
