@@ -8,6 +8,7 @@ import sklearn.decomposition as dec
 import scipy
 import logging
 from sensorData import SensorData
+import platform
 
 FORMAT = '[%(asctime)s] [%(levelname)s] [%(funcName)s] [%(lineno)d] : %(message)s'
 logging.basicConfig(format=FORMAT, level = logging.INFO)
@@ -145,12 +146,20 @@ def main():
     """
     :return:
     """
+
+    if platform.system() == "Windows":
+        seperator = "\\"
+    else:
+        seperator = "/"
+
     logging.info("Starting ...")
-    dataset_location = "..\\dataset\\good_sync\\"
+    dataset_location = ".." + seperator + "dataset" + \
+                       seperator + "good_sync" + seperator
     dir = "perry-all-2"
     logging.info("Obtaining collected data ...")
     sd = SensorData(dataset_location + dir)
-    video_location = dataset_location + "\\" + dir + "\\" + sd.get_video_filename()
+    video_location = dataset_location + seperator + dir + seperator\
+                     + sd.get_video_filename()
     logging.info("Working on video " + video_location)
     vidcap = cv2.VideoCapture(video_location)
     success, image = vidcap.read()
