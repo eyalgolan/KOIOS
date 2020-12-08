@@ -145,14 +145,17 @@ def main():
     """
     :return:
     """
+    logging.info("Starting ...")
     dataset_location = "..\\dataset\\good_sync\\"
     dir = "perry-all-2"
+    logging.info("Obtaining collected data ...")
     sd = SensorData(dataset_location + dir)
-    logging.info("Starting ...")
     video_location = dataset_location + "\\" + dir + "\\" + sd.get_video_filename()
     logging.info("Working on video " + video_location)
     vidcap = cv2.VideoCapture(video_location)
     success, image = vidcap.read()
+    image = cv2.rotate(image, cv2.cv2.ROTATE_90_COUNTERCLOCKWISE)
+    #cv2.imwrite("test.jpg", image)
     num_of_frames = 1
     fps = vidcap.get(cv2.CAP_PROP_FPS)
     greens = []
@@ -164,6 +167,7 @@ def main():
         parse_roi(image)  # build image ROI
         image = cv2.imread("faces_detected.jpg")
         success, image = parse_RGB(image, vidcap, greens, blues, reds)
+        image = cv2.rotate(image, cv2.cv2.ROTATE_90_COUNTERCLOCKWISE)
         num_of_frames += 1
 
     logging.info("Plotting results ...")

@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import scipy.signal as sig
+
 import json
 
 class SensorData:
@@ -16,8 +17,8 @@ class SensorData:
 
     def get_video_filename(self):
         data_dict = json.loads(self.raw_json)
-        video_filename = self.raw_data_dir + data_dict["videos"]["phone"]["files"][0]
-        return data_dict["videos"]["phone"]["files"][0]
+        video_filename = data_dict["videos"]["phone"]["files"][0]
+        return video_filename
     def get_filename(self, in_filename, file_type):
         for fname in os.listdir(self.raw_data_dir):
             if in_filename in fname and file_type in fname:
