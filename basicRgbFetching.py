@@ -35,7 +35,7 @@ def parse_roi(image):
         cv2.imwrite('faces_detected.jpg', roi_color)
         roi_color_rgb = cv2.cvtColor(roi_color, cv2.COLOR_BGR2RGB)
         plt.imshow(roi_color_rgb)
-        #plt.show()
+        plt.show()
     if not flag_face_detected:
         logging.warning("No face detected in image")
 
@@ -145,11 +145,13 @@ def main():
     """
     :return:
     """
-    dataset_location = "..\\dataset\\good_sync\\"
+    dataset_location = "../dataset/good_sync/"
+    # dataset_location = "..\\dataset\\good_sync\\"
     dir = "perry-all-2"
     sd = SensorData(dataset_location + dir)
     logging.info("Starting ...")
-    video_location = dataset_location + "\\" + dir + "\\" + sd.get_video_filename()
+    # video_location = dataset_location + "\\" + dir + "\\" + sd.get_video_filename()
+    video_location = dataset_location + "/" + dir + "/" + sd.get_video_filename()
     logging.info("Working on video " + video_location)
     vidcap = cv2.VideoCapture(video_location)
     success, image = vidcap.read()
