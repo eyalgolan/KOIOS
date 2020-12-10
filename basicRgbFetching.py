@@ -8,6 +8,8 @@ import sklearn.decomposition as dec
 import scipy
 import logging
 from sensorData import SensorData
+import platform
+import imutils
 
 FORMAT = '[%(asctime)s] [%(levelname)s] [%(funcName)s] [%(lineno)d] : %(message)s'
 logging.basicConfig(format=FORMAT, level = logging.INFO)
@@ -139,20 +141,55 @@ def perform_ica(greens, reds, blues):
     s = ica_.fit_transform(rgb_mat).T  # s is a matrix of the original signals, each row is a component.
     plot_results(s[1, :], s[0, :], s[2, :], "After ICA")
 
+def rotate_image(mat, angle):
+    """
+    Rotates an image (angle in degrees) and expands image to avoid cropping
+    """
+
+    height, width = mat.shape[:2] # image shape has 3 dimensions
+    image_center = (width/2, height/2) # getRotationMatrix2D needs coordinates in reverse order (width, height) compared to shape
+
+    rotation_mat = cv2.getRotationMatrix2D(image_center, angle, 1.)
+
+    # rotation calculates the cos and sin, taking absolutes of those.
+    abs_cos = abs(rotation_mat[0,0])
+    abs_sin = abs(rotation_mat[0,1])
+
+    # find the new width and height bounds
+    bound_w = int(height * abs_sin + width * abs_cos)
+    bound_h = int(height * abs_cos + width * abs_sin)
+
+    # subtract old image center (bringing image back to origo) and adding the new image center coordinates
+    rotation_mat[0, 2] += bound_w/2 - image_center[0]
+    rotation_mat[1, 2] += bound_h/2 - image_center[1]
+
+    # rotate image with the new bounds and translated rotation matrix
+    rotated_mat = cv2.warpAffine(mat, rotation_mat, (bound_w, bound_h))
+    return rotated_mat
 
 # This part convert the video to images, every image is a frame
 def main():
     """
     :return:
     """
-    dataset_location = "..\\dataset\\good_sync\\"
-    dir = "perry-all-2"
-    sd = SensorData(dataset_location + dir)
     logging.info("Starting ...")
-    video_location = dataset_location + "\\" + dir + "\\" + sd.get_video_filename()
+
+    if platform.system() == "Windows":
+        seperator = "\\"
+    else:
+        seperator = "/"
+
+    dataset_location = ".." + seperator + "dataset" + \
+                       seperator + "good_sync" + seperator
+    dir = "perry-all-2"
+    logging.info("Obtaining collected data ...")
+    sd = SensorData(dataset_location + dir)
+    video_location = dataset_location + seperator + dir + seperator\
+                     + sd.get_video_filename()
     logging.info("Working on video " + video_location)
     vidcap = cv2.VideoCapture(video_location)
     success, image = vidcap.read()
+    #image = cv2.rotate(image, cv2.cv2.ROTATE_90_COUNTERCLOCKWISE)
     num_of_frames = 1
     fps = vidcap.get(cv2.CAP_PROP_FPS)
     greens = []
@@ -161,9 +198,12 @@ def main():
 
     logging.info("Parsing images ...")
     while success:
+        image = rotate_image(image, 90)
         parse_roi(image)  # build image ROI
         image = cv2.imread("faces_detected.jpg")
         success, image = parse_RGB(image, vidcap, greens, blues, reds)
+        #image = cv2.rotate(image, cv2.cv2.ROTATE_90_COUNTERCLOCKWISE)
+        #cv2.imshow("Rotated (Correct)", image)
         num_of_frames += 1
 
     logging.info("Plotting results ...")
