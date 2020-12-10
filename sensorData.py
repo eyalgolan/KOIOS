@@ -9,21 +9,38 @@ import scipy.signal as sig
 import json
 
 class SensorData:
+    """
+    A class responsible for collecting the sensor data from the files
+    """
     def __init__(self, raw_data_dir):
         self.raw_data_dir = raw_data_dir
         self.raw_json = self.get_rawdata_json()
         self.sensor_dataframe = self.get_sensor_data()
 
     def get_video_filename(self):
+        """
+
+        :return:
+        """
         data_dict = json.loads(self.raw_json)
         video_filename = data_dict["videos"]["phone"]["files"][0]
         return video_filename
     def get_filename(self, in_filename, file_type):
+        """
+        
+        :param in_filename:
+        :param file_type:
+        :return:
+        """
         for fname in os.listdir(self.raw_data_dir):
             if in_filename in fname and file_type in fname:
                 return str(fname)
 
     def get_rawdata_json(self):
+        """
+
+        :return:
+        """
         name = self.raw_data_dir
 
         metis = {"events": self.get_filename("events", "csv"),
@@ -62,6 +79,12 @@ class SensorData:
         return raw_json
 
     def get_polar_sensor(self, sensor_file, sensor_cols=None):
+        """
+
+        :param sensor_file:
+        :param sensor_cols:
+        :return:
+        """
         if sensor_cols is None:
             df = pd.read_csv(sensor_file, delimiter=" ")
         else:
@@ -74,6 +97,10 @@ class SensorData:
         return df
 
     def get_sensor_data(self):
+        """
+
+        :return:
+        """
         data_dict = json.loads(self.raw_json)
         n_sensors = len(data_dict["sensors"])
 
