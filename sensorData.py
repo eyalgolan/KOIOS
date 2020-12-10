@@ -61,6 +61,18 @@ class SensorData:
             json.dump(data, write_file, indent=4)
         return raw_json
 
+    def get_polar_sensor(self, sensor_file, sensor_cols=None):
+        if sensor_cols is None:
+            df = pd.read_csv(sensor_file, delimiter=" ")
+        else:
+            df = pd.read_csv(sensor_file, delimiter=" ", names=sensor_cols,
+                             skiprows=1)
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ns').dt.round(
+            '1ms')
+        df['timestamp'] = df['timestamp'] + pd.DateOffset(years=30, days=-1)
+        df = df.set_index("timestamp")
+        return df
+
     def get_sensor_data(self):
         data_dict = json.loads(self.raw_json)
         n_sensors = len(data_dict["sensors"])
@@ -72,6 +84,6 @@ class SensorData:
                 sensor = (sname, dname)
                 files[sensor] = os.path.join(self.raw_data_dir, ddata['dir'], ddata['files'][0])
                 logging.info(f'Sensor: {sname} Data: {dname} File: {files[sensor]}')
-                #df[sensor] = mu.get_polar_sensor(files[sensor])
+                df[sensor] = self.get_polar_sensor(files[sensor])
                 #display(df[sensor].head(5))
         return df
