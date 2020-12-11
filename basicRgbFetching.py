@@ -7,12 +7,14 @@ import cv2.cv2
 import sklearn.decomposition as dec
 import scipy
 import logging
+import scipy.signal
 from sensorData import SensorData
 import platform
-import imutils
+import imutils  # why do we need this?
 
 FORMAT = '[%(asctime)s] [%(levelname)s] [%(funcName)s] [%(lineno)d] : %(message)s'
-logging.basicConfig(format=FORMAT, level = logging.INFO)
+logging.basicConfig(format=FORMAT, level=logging.INFO)
+
 
 def parse_roi(image):
     """
@@ -33,13 +35,14 @@ def parse_roi(image):
         flag_face_detected = True
         cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
         roi_color = image[y:y + h, x:x + w]
-        #print("[INFO] Object found. Saving locally.")
+        # print("[INFO] Object found. Saving locally.")
         cv2.imwrite('faces_detected.jpg', roi_color)
         roi_color_rgb = cv2.cvtColor(roi_color, cv2.COLOR_BGR2RGB)
         plt.imshow(roi_color_rgb)
-        #plt.show()
+        # plt.show()
     if not flag_face_detected:
         logging.warning("No face detected in image")
+
 
 def parse_RGB(image, vidcap, greens, blues, reds):
     """
@@ -56,19 +59,20 @@ def parse_RGB(image, vidcap, greens, blues, reds):
     blues.append(np.mean(blue))
     reds.append(np.mean(red))
     success, image = vidcap.read()
-    #print('Read a new frame: ', success)
+    # print('Read a new frame: ', success)
     return success, image
 
 
-# TODO: need to fixed the tittle bug
 def plot_results(greens, reds, blues, title=""):
     """
-    Plots the results
+    Plot results
     :param title: Title of the results
     :param greens: array containing green channel values
     :param reds: array containing red channel values
     :param blues: array containing blue channel values
     """
+
+    plt.figure(figsize=(6, 5))
     plt.title(title)
     plt.subplot(3, 1, 1)
     plt.plot(greens, "green")
@@ -79,35 +83,43 @@ def plot_results(greens, reds, blues, title=""):
     plt.show()
 
 
-# A failed attempt to run fft :(
-# def apply_fft(second_component):
-#     n = 90
-#     fhat = np.fft.fft(second_component, n)
-#     PSD = fhat * (np.conj(fhat) / n)
-#     freq = 3 * np.arange(n)
-#     L = np.arange(1, np.floor(n / 2), dtype='int')
-#     indices = PSD > 100
-#     PSDclean = PSD * indices
-#     fhat = indices * fhat
-#     ffilt = np.fft.ifft(fhat)
-#     plt.plot(ffilt, "pink")
-#     plt.show()
-#     # x_fft = scipy.fft.fft(second_component)
-#     # plt.plot(x_fft)
-#     # FIR
-
-# A failed attempt to run signal filter :(
-# def apply_FIR_filter(signal, fps=30, filter_size=2, min_f=0.75, max_f=3.3):
-#     import scipy.signal
-#     FIR_filter = scipy.signal.firwin(numtaps=filter_size * fps + 1, cutoff=[min_f * 2 / fps, max_f * 2 / fps],
-#                                      window='hamming', pass_zero=True)
-#     filtered_signal = np.convolve(signal, FIR_filter, mode='valid')
-#     return filtered_signal
+def apply_fir(signal, fps=30, filter_size=2, min_f=0.75, max_f=3.3):
+    '''
+        This function filter a signal.
+    :param signal: the sig to be filter
+    :param fps: fps of the video
+    :param filter_size: size of the filter
+    :param min_f: minimum frequency  to filter. 0.75 means 45 bmp
+    :param max_f: Max frequency to filter. 0.3.3 means 200 bmp
+    :return: filtered signal.
+    '''
+    logging.info("Run FIR filter on green signal")
+    FIR_filter = scipy.signal.firwin(numtaps=filter_size * fps + 1, cutoff=[min_f * 2 / fps, max_f * 2 / fps],
+                                     window='hamming', pass_zero=False) # runs scipy FIR filter method with some params from the web.
+    filtered_signal = np.convolve(signal, FIR_filter, mode='valid')
+    return filtered_signal
 
 
 def extract_hr(greens, reds, blues):
+    '''
+    This function is THE function that runs the method to extract the heart beat.
+    :param greens: green signal
+    :param reds: red signal
+    :param blues: blue signal
+    :return: For now nothing, should return the bbp of the person in the video for every 15 seconds window.
+    '''
     logging.info("Extracting HR ...")
-    perform_ica(greens, reds, blues)
+    rgb_after_ica = perform_ica(greens, reds, blues)
+    filtered_green_sig = apply_fir(rgb_after_ica[1, :])
+    # TODO: run fft on the filtered sig in every 15 second window and calc the heart rate.
+    # A sanity check of the filtering:
+    plt.figure(figsize=(6, 5))
+    plt.title("filtered_green_sig")
+    plt.subplot(2, 1, 1)
+    plt.plot(rgb_after_ica[1, :][:200])
+    plt.subplot(2, 1, 2)
+    plt.plot(filtered_green_sig[:200])
+    plt.show()
 
 
 def standardize(lst):
@@ -140,32 +152,36 @@ def perform_ica(greens, reds, blues):
     ica_ = dec.FastICA()
     s = ica_.fit_transform(rgb_mat).T  # s is a matrix of the original signals, each row is a component.
     plot_results(s[1, :], s[0, :], s[2, :], "After ICA")
+    return s
+
 
 def rotate_image(mat, angle):
     """
     Rotates an image (angle in degrees) and expands image to avoid cropping
     """
 
-    height, width = mat.shape[:2] # image shape has 3 dimensions
-    image_center = (width/2, height/2) # getRotationMatrix2D needs coordinates in reverse order (width, height) compared to shape
+    height, width = mat.shape[:2]  # image shape has 3 dimensions
+    image_center = (
+    width / 2, height / 2)  # getRotationMatrix2D needs coordinates in reverse order (width, height) compared to shape
 
     rotation_mat = cv2.getRotationMatrix2D(image_center, angle, 1.)
 
     # rotation calculates the cos and sin, taking absolutes of those.
-    abs_cos = abs(rotation_mat[0,0])
-    abs_sin = abs(rotation_mat[0,1])
+    abs_cos = abs(rotation_mat[0, 0])
+    abs_sin = abs(rotation_mat[0, 1])
 
     # find the new width and height bounds
     bound_w = int(height * abs_sin + width * abs_cos)
     bound_h = int(height * abs_cos + width * abs_sin)
 
     # subtract old image center (bringing image back to origo) and adding the new image center coordinates
-    rotation_mat[0, 2] += bound_w/2 - image_center[0]
-    rotation_mat[1, 2] += bound_h/2 - image_center[1]
+    rotation_mat[0, 2] += bound_w / 2 - image_center[0]
+    rotation_mat[1, 2] += bound_h / 2 - image_center[1]
 
     # rotate image with the new bounds and translated rotation matrix
     rotated_mat = cv2.warpAffine(mat, rotation_mat, (bound_w, bound_h))
     return rotated_mat
+
 
 # This part convert the video to images, every image is a frame
 def main():
@@ -179,17 +195,16 @@ def main():
     else:
         seperator = "/"
 
-    dataset_location = ".." + seperator + "dataset" + \
-                       seperator + "good_sync" + seperator
+    dataset_location = ".." + seperator + "dataset" + seperator + "good_sync" + seperator
     dir = "perry-all-2"
     logging.info("Obtaining collected data ...")
     sd = SensorData(dataset_location + dir)
-    video_location = dataset_location + seperator + dir + seperator\
-                     + sd.get_video_filename()
+    # video_location = dataset_location + seperator + dir + seperator + sd.get_video_filename()
+    video_location = dataset_location + seperator + dir + seperator + "ptest.mp4"
     logging.info("Working on video " + video_location)
     vidcap = cv2.VideoCapture(video_location)
     success, image = vidcap.read()
-    #image = cv2.rotate(image, cv2.cv2.ROTATE_90_COUNTERCLOCKWISE)
+    # image = cv2.rotate(image, cv2.cv2.ROTATE_90_COUNTERCLOCKWISE)
     num_of_frames = 1
     fps = vidcap.get(cv2.CAP_PROP_FPS)
     greens = []
@@ -202,14 +217,15 @@ def main():
         parse_roi(image)  # build image ROI
         image = cv2.imread("faces_detected.jpg")
         success, image = parse_RGB(image, vidcap, greens, blues, reds)
-        #image = cv2.rotate(image, cv2.cv2.ROTATE_90_COUNTERCLOCKWISE)
-        #cv2.imshow("Rotated (Correct)", image)
+        # image = cv2.rotate(image, cv2.cv2.ROTATE_90_COUNTERCLOCKWISE)
+        # cv2.imshow("Rotated (Correct)", image)
         num_of_frames += 1
 
     logging.info("Plotting results ...")
     plot_results(greens, reds, blues, "The first results")
     extract_hr(greens, reds, blues)  # didnt understand that warning.
     logging.info("Done")
+
 
 if __name__ == "__main__":
     main()
