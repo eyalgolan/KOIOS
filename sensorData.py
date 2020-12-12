@@ -16,7 +16,7 @@ class SensorData:
         self.sensor_dataframe = self.create_dataframe_of_sensors()
         self.sdf = self.create_sensors_dataframe()
         self.pdf = self.handle_sdf_cleanup()
-        self.find_common_period()
+        #self.find_common_period()
 
     def get_video_filename(self):
         """
@@ -191,6 +191,7 @@ class SensorData:
         return pdf
 
     def find_common_period(self):
+
         # Find commom period
         b = np.max((self.sensor_dataframe['OH1', 'ACC'].index[0], self.sensor_dataframe['H10', 'ACC'].index[0],
                     self.pdf.index[0]))
@@ -204,6 +205,7 @@ class SensorData:
         x['phone'] = np.sqrt(
             cdf['phone'][('acc', 'x')] ** 2 + cdf['phone'][('acc', 'y')] ** 2 +
             cdf['phone'][('acc', 'z')] ** 2)
+
         for key in ['OH1', 'H10']:
             cdf[key] = self.sensor_dataframe[key, 'ACC'].reindex(index=cdf['phone'].index,
                                               method='nearest')
@@ -232,6 +234,22 @@ class SensorData:
             logging.info(f'Offset {pair[0]} vs. {pair[1]} is: {offset[pair]}')
         ax[1].legend()
         #self.plot_sensors(self.pdf)
+
+        for key in self.sensor_dataframe.keys():
+            off = offset['phone', key[0]]
+            logging.info(f'Sensor {key[0]} Data {key[1]} Offset: {off}')
+            self.sensor_dataframe[key]['adj_timestamp'] = self.sensor_dataframe[key].index + timedelta(
+                milliseconds=0.0 + off * 10)
+            self.sensor_dataframe[key] = self.sensor_dataframe[key].set_index('adj_timestamp')
+
+        for key in self.sensor_dataframe.keys():
+            idx = self.pdf.index[(self.pdf.index >= self.sensor_dataframe[key].index[0]) & (
+            (self.pdf.index <= self.sensor_dataframe[key].index[-1]))]
+            aidx = idx.union(self.sensor_dataframe[key].index)
+            interp_df = self.sensor_dataframe[key].reindex(aidx).interpolate(method='linear')
+            index_df = interp_df.loc[idx]
+            for column in self.sensor_dataframe[key].columns:
+                self.pdf[f'{key[0]}-{key[1]}', column] = index_df[column]
 
     def clean_sensor(self, sensor_df, idx):
         logging.info(f'Original number of samples: {sensor_df.shape[0]}')
