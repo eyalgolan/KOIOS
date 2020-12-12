@@ -1,11 +1,6 @@
 import logging
 import os
-from datetime import datetime, timedelta
-import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import scipy.signal as sig
-
 import json
 
 class SensorData:
@@ -101,6 +96,7 @@ class SensorData:
 
         :return:
         """
+        logging.info("Obtaining collected data ...")
         data_dict = json.loads(self.raw_json)
         n_sensors = len(data_dict["sensors"])
 
@@ -114,3 +110,4 @@ class SensorData:
                 df[sensor] = self.get_polar_sensor(files[sensor])
                 #display(df[sensor].head(5))
         return df
+
