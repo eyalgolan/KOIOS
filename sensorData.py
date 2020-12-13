@@ -5,6 +5,7 @@ import numpy as np
 import json
 import matplotlib.pyplot as plt
 import scipy.signal as sig
+from datetime import timedelta
 
 class SensorData:
     """
@@ -16,7 +17,7 @@ class SensorData:
         self.sensor_dataframe = self.create_dataframe_of_sensors()
         self.sdf = self.create_sensors_dataframe()
         self.pdf = self.handle_sdf_cleanup()
-        #self.find_common_period()
+        self.find_common_period()
 
     def get_video_filename(self):
         """
@@ -206,6 +207,7 @@ class SensorData:
             cdf['phone'][('acc', 'x')] ** 2 + cdf['phone'][('acc', 'y')] ** 2 +
             cdf['phone'][('acc', 'z')] ** 2)
 
+        #todo understand how this works - how can a timestamp as index be reindexed here?
         for key in ['OH1', 'H10']:
             cdf[key] = self.sensor_dataframe[key, 'ACC'].reindex(index=cdf['phone'].index,
                                               method='nearest')
