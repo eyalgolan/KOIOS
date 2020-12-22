@@ -240,14 +240,18 @@ class SensorData:
             offset[pair] = l[0][l[1].argmax()]
             logging.info(f'Offset {pair[0]} vs. {pair[1]} is: {offset[pair]}')
         ax[1].legend()
-        #self.plot_sensors(self.pdf)
+        self.plot_sensors(self.pdf)
 
         for key in self.sensor_dataframe.keys():
             off = offset['phone', key[0]]
             logging.info(f'Sensor {key[0]} Data {key[1]} Offset: {off}')
-            print(self.sensor_dataframe[key].index)
-            time_delta = timedelta(milliseconds=0.0 + off * 10).days
-            self.sensor_dataframe[key]['adj_timestamp'] = self.sensor_dataframe[key].index + time_delta
+            #print(self.sensor_dataframe[key].index)
+            time_delta = timedelta(milliseconds=0.0 + off * 10)
+            print(self.sensor_dataframe[key]["timestamp;sensor"])
+            self.sensor_dataframe[key]['timestamp;sensor'] = pd.to_datetime(self.sensor_dataframe[key]['timestamp;sensor'],
+                                             unit='ns').dt.round('1ms')
+
+            self.sensor_dataframe[key]['adj_timestamp'] = self.sensor_dataframe[key]['timestamp;sensor'] + time_delta
             self.sensor_dataframe[key] = self.sensor_dataframe[key].set_index('adj_timestamp')
 
         for key in self.sensor_dataframe.keys():
@@ -297,4 +301,5 @@ class SensorData:
             ax.plot(cdf.index, cdf[field], label=field)
         ax.legend()
         ax.set_title(title)
+        plt.show()
 
