@@ -207,12 +207,17 @@ class SensorData:
             cdf['phone'][('acc', 'x')] ** 2 + cdf['phone'][('acc', 'y')] ** 2 +
             cdf['phone'][('acc', 'z')] ** 2)
 
-        #todo understand how this works - how can a timestamp as index be reindexed here?
         for key in ['OH1', 'H10']:
+            cdf['phone'] = cdf['phone'].drop_duplicates()
+            cdf['phone'] = cdf['phone'].reset_index(drop=True)
+            cdf['phone'] = cdf['phone'].reset_index()
+            self.sensor_dataframe[key, 'ACC'] = self.sensor_dataframe[key, 'ACC'].drop_duplicates()
+            self.sensor_dataframe[key, 'ACC'] = self.sensor_dataframe[key, 'ACC'].reset_index(drop=True)
+            self.sensor_dataframe[key, 'ACC'] = self.sensor_dataframe[key, 'ACC'].reset_index()
             cdf[key] = self.sensor_dataframe[key, 'ACC'].reindex(index=cdf['phone'].index,
                                               method='nearest')
             x[key] = np.sqrt(
-                cdf[key]['x'] ** 2 + cdf[key]['y'] ** 2 + cdf[key]['z'] ** 2)
+                cdf[key]['[ns];X'] ** 2 + cdf[key]['[mg];Y'] ** 2 + cdf[key]['[mg];Z'] ** 2)
         logging.info(
             f'Phone cut {cdf["phone"].shape[0]} OH1 cut {cdf["OH1"].shape[0]} H10 cut {cdf["H10"].shape[0]}')
 
@@ -235,13 +240,18 @@ class SensorData:
             offset[pair] = l[0][l[1].argmax()]
             logging.info(f'Offset {pair[0]} vs. {pair[1]} is: {offset[pair]}')
         ax[1].legend()
-        #self.plot_sensors(self.pdf)
+        self.plot_sensors(self.pdf)
 
         for key in self.sensor_dataframe.keys():
             off = offset['phone', key[0]]
             logging.info(f'Sensor {key[0]} Data {key[1]} Offset: {off}')
-            self.sensor_dataframe[key]['adj_timestamp'] = self.sensor_dataframe[key].index + timedelta(
-                milliseconds=0.0 + off * 10)
+            #print(self.sensor_dataframe[key].index)
+            time_delta = timedelta(milliseconds=0.0 + off * 10)
+            print(self.sensor_dataframe[key]["timestamp;sensor"])
+            self.sensor_dataframe[key]['timestamp;sensor'] = pd.to_datetime(self.sensor_dataframe[key]['timestamp;sensor'],
+                                             unit='ns').dt.round('1ms')
+
+            self.sensor_dataframe[key]['adj_timestamp'] = self.sensor_dataframe[key]['timestamp;sensor'] + time_delta
             self.sensor_dataframe[key] = self.sensor_dataframe[key].set_index('adj_timestamp')
 
         for key in self.sensor_dataframe.keys():
@@ -291,4 +301,5 @@ class SensorData:
             ax.plot(cdf.index, cdf[field], label=field)
         ax.legend()
         ax.set_title(title)
+        plt.show()
 

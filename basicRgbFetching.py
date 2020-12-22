@@ -18,11 +18,12 @@ class HeartRateDetector:
                                 "good_sync" + seperator
         self.specific_dir = dir
         self.sd = SensorData(self.dataset_location + self.specific_dir)
-        self.video_location = self.dataset_location + seperator + \
-                              self.specific_dir + seperator + "P104_2020-12-06_121257717.mp4"
+        self.video_location = "test.mp4"
+        #self.video_location = self.dataset_location + seperator + \
+        #                      self.specific_dir + seperator + "P104_2020-12-06_121257717.mp4"
         self.greens, self.reds, self.blues = self.process_video()
         self.plot_results("The first results")
-        self.extract_hr()  # didnt understand that warning.
+        self.extract_hr()  # didn't understand that warning.
         logging.info("Done")
 
     def process_video(self):
@@ -38,7 +39,7 @@ class HeartRateDetector:
 
         logging.info("Parsing images ...")
         while success:
-            image = self.rotate_image(image, 90)
+            #image = self.rotate_image(image, 90)
             self.parse_roi(image)  # build image ROI
             image = cv2.imread("faces_detected.jpg")
             success, image = self.parse_RGB(image, vidcap, greens, reds, blues)
