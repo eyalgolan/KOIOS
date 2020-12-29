@@ -188,7 +188,12 @@ class SensorData:
                                                  names=['Sensor', 'Axis'])
         fig, ax = plt.subplots(figsize=(10, 8), nrows=3, ncols=1, sharex=True)
         self.plot_acc(pdf, None, [('acc', 'x'), ('acc', 'y'), ('acc', 'z')],
-                 ax=ax[0], title='Phone accelerometer')
+                 ax=ax[0], title='ACC accelerometer')
+        self.plot_acc(pdf, None, [('gyr', 'x'), ('gyr', 'y'), ('gyr', 'z')],
+                      ax=ax[1], title='GYR accelerometer')
+        self.plot_acc(pdf, None, [('mag', 'x'), ('mag', 'y'), ('mag', 'z')],
+                      ax=ax[2], title='MAG accelerometer')
+        plt.show()
         return pdf
 
     def find_common_period(self):
@@ -203,21 +208,38 @@ class SensorData:
 
         x, cdf = {}, {}
         cdf['phone'] = self.pdf[(self.pdf.index > b) & (self.pdf.index < e)]
+        cdf["phone"].to_csv("cdf_after_first.csv")
         x['phone'] = np.sqrt(
             cdf['phone'][('acc', 'x')] ** 2 + cdf['phone'][('acc', 'y')] ** 2 +
             cdf['phone'][('acc', 'z')] ** 2)
-
+        x["phone"].to_csv("x_after_first.csv")
         for key in ['OH1', 'H10']:
-            cdf['phone'] = cdf['phone'].drop_duplicates()
+            #cdf['phone'] = cdf['phone'].drop_duplicates()
             cdf['phone'] = cdf['phone'].reset_index(drop=True)
-            cdf['phone'] = cdf['phone'].reset_index()
-            self.sensor_dataframe[key, 'ACC'] = self.sensor_dataframe[key, 'ACC'].drop_duplicates()
+            #cdf['phone'] = cdf['phone'].reset_index()
+            #self.sensor_dataframe[key, 'ACC'] = self.sensor_dataframe[key, 'ACC'].drop_duplicates()
             self.sensor_dataframe[key, 'ACC'] = self.sensor_dataframe[key, 'ACC'].reset_index(drop=True)
-            self.sensor_dataframe[key, 'ACC'] = self.sensor_dataframe[key, 'ACC'].reset_index()
+            #self.sensor_dataframe[key, 'ACC'] = self.sensor_dataframe[key, 'ACC'].reset_index()
             cdf[key] = self.sensor_dataframe[key, 'ACC'].reindex(index=cdf['phone'].index,
                                               method='nearest')
+            new_rows = []
+            for index, row in cdf[key].iterrows():
+                all_data = row['Phone']
+                all_data_list = all_data.split(';')
+                row['timestamp;sensor'] = all_data_list[0]
+                row['[ns];X'] = int(all_data_list[1])
+                row['[mg];Y'] = int(all_data_list[2])
+                row['[mg];Z'] = int(all_data_list[3])
+                row['[mg]'] = int(all_data_list[4])
+                new_rows.append(row)
+            cdf[key] = pd.DataFrame(new_rows)
+            #cdf[key].to_csv("cdf_before.csv")
+            cdf[key] = cdf[key].rename({'[ns];X': 'x', '[mg];Y': 'y','[mg];Z': 'z'}, axis=1)
+            #cdf[key].to_csv("cdf_after.csv")
             x[key] = np.sqrt(
-                cdf[key]['[ns];X'] ** 2 + cdf[key]['[mg];Y'] ** 2 + cdf[key]['[mg];Z'] ** 2)
+                cdf[key]['x'] ** 2 + cdf[key]['y'] ** 2 + cdf[key]['z'] ** 2)
+            #x[key] = np.sqrt(
+            #    cdf[key]['[ns];X'] ** 2 + cdf[key]['[mg];Y'] ** 2 + cdf[key]['[mg];Z'] ** 2)
         logging.info(
             f'Phone cut {cdf["phone"].shape[0]} OH1 cut {cdf["OH1"].shape[0]} H10 cut {cdf["H10"].shape[0]}')
 
@@ -240,14 +262,12 @@ class SensorData:
             offset[pair] = l[0][l[1].argmax()]
             logging.info(f'Offset {pair[0]} vs. {pair[1]} is: {offset[pair]}')
         ax[1].legend()
-        self.plot_sensors(self.pdf)
+        plt.show()
 
         for key in self.sensor_dataframe.keys():
             off = offset['phone', key[0]]
             logging.info(f'Sensor {key[0]} Data {key[1]} Offset: {off}')
-            #print(self.sensor_dataframe[key].index)
             time_delta = timedelta(milliseconds=0.0 + off * 10)
-            print(self.sensor_dataframe[key]["timestamp;sensor"])
             self.sensor_dataframe[key]['timestamp;sensor'] = pd.to_datetime(self.sensor_dataframe[key]['timestamp;sensor'],
                                              unit='ns').dt.round('1ms')
 
@@ -262,6 +282,8 @@ class SensorData:
             index_df = interp_df.loc[idx]
             for column in self.sensor_dataframe[key].columns:
                 self.pdf[f'{key[0]}-{key[1]}', column] = index_df[column]
+        self.pdf.to_csv("pdf_final.csv")
+        self.plot_sensors(self.pdf)
 
     def clean_sensor(self, sensor_df, idx):
         logging.info(f'Original number of samples: {sensor_df.shape[0]}')
@@ -287,7 +309,7 @@ class SensorData:
         self.plot_acc(df, ('OH1', 'PPG'), ['ch1', 'ch2', 'ch3'], ax[2],
                  'OH1 PPG')
         self.plot_acc(df, ('H10', 'ECG'), ['ecg'], ax[3], 'H10 ECG')
-
+        plt.show()
     def plot_acc(self, df, key, fields, ax, title=''):
         if key is None:
             cdf = df
@@ -301,5 +323,4 @@ class SensorData:
             ax.plot(cdf.index, cdf[field], label=field)
         ax.legend()
         ax.set_title(title)
-        plt.show()
 

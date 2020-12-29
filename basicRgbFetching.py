@@ -226,7 +226,7 @@ def main():
     else:
         seperator = "/"
 
-    dir = "perry-all-2"
+    dir = "perry-movement-3"
     hrd = HeartRateDetector(seperator, dir)
 
 
