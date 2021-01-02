@@ -188,7 +188,12 @@ class SensorData:
                                                  names=['Sensor', 'Axis'])
         fig, ax = plt.subplots(figsize=(10, 8), nrows=3, ncols=1, sharex=True)
         self.plot_acc(pdf, None, [('acc', 'x'), ('acc', 'y'), ('acc', 'z')],
-                 ax=ax[0], title='Phone accelerometer')
+                 ax=ax[0], title='acc accelerometer')
+        self.plot_acc(pdf, None, [('gyr', 'x'), ('gyr', 'y'), ('gyr', 'z')],
+                      ax=ax[1], title='gyr accelerometer')
+        self.plot_acc(pdf, None, [('mag', 'x'), ('mag', 'y'), ('mag', 'z')],
+                      ax=ax[2], title='mag accelerometer')
+        plt.show()
         return pdf
 
     def find_common_period(self):
@@ -287,7 +292,7 @@ class SensorData:
         self.plot_acc(df, ('OH1', 'PPG'), ['ch1', 'ch2', 'ch3'], ax[2],
                  'OH1 PPG')
         self.plot_acc(df, ('H10', 'ECG'), ['ecg'], ax[3], 'H10 ECG')
-
+        plt.show()
     def plot_acc(self, df, key, fields, ax, title=''):
         if key is None:
             cdf = df
@@ -301,5 +306,5 @@ class SensorData:
             ax.plot(cdf.index, cdf[field], label=field)
         ax.legend()
         ax.set_title(title)
-        plt.show()
+        #plt.show()
 
