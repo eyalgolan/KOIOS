@@ -6,6 +6,8 @@ import platform
 import glob
 import ctypes
 import scipy
+import matplotlib.pyplot as plt
+from skimage import color
 
 
 ### RGB2YIQ2 AND YIQ2RGB
@@ -35,31 +37,87 @@ def shiftdim(x, n):
     return x.transpose(np.roll(range(x.ndim), -n))
 
 
-def ideal_bandpassing(input, dim, wl, wh, fs):
-    if dim > np.asarray(input.shape).ndim:
-        print('Exceed maximum dimension')
-    input_shifted = shiftdim(input, dim - 1)  # need to implement shift_dim
-    dimension = np.asarray(input_shifted.shape)
+def repmat(a,m):
+    #First, pad out a so it has same dimensionality as m
+    for i in range(0,m.ndim-a.ndim):
+        a = np.expand_dims(a,1)
+    #Now just use numpy tile and return result
+    return np.tile(a,m.shape)
 
-    n = dimension[0]
+
+def ideal_bandpassing(input, dim, wl, wh, samplingRate):
+    # if dim is greater than the dimensionality (2d, 3d etc) of the input, quit
+    if (dim > len(input.shape)):
+        print('Exceed maximum dimension')
+        return
+
+    # This has the effect that input_shifted[0] = input[dim]
+    input_shifted = shiftdim(input, dim - 1)
+
+    # Put the dimensions of input_shifted in a 1d array
+    Dimensions = np.asarray(input_shifted.shape)
+
+    # how many things in the first dimension of input_shifted
+    n = Dimensions[0]
+
+    # get the dimensionality (eg. 2d, 3d etc) of input_shifted
     dn = input_shifted.ndim
 
-    Freq = np.arange(n)
-    Freq = Freq / n * fs  # removed minus 1 because the array start at 0 and matlab starts at 1 so in matalb yousould subtract by 1
-    mask = (Freq > wl) & (Freq < wh)
-    dimension[0] = 1
-    mask = mask.flatten('F')
-    mask = np.tile(mask, dimension)
-    F = np.fft.fft(input_shifted, axis=0)
-    mask.resize(F.shape)
-    F[~mask] = 0  # dont know what is this
+    # creates a vector [1,...,n], the same length as the first dimension of input_shifted
+    Freq = np.arange(1.0, n + 1)
 
-    filtered = np.fft.ifft(a=F, axis=0).real
+    # Equivalent in python: Freq = (Freq-1)/n*samplingRate
+    Freq = Freq / n * samplingRate
+
+    # Create boolean mask same size as Freq, true in between the frequency limits wl,wh
+    mask = (Freq > wl) & (Freq < wh)
+
+    Dimensions[0] = 1
+    mask = repmat(mask, np.ndarray(Dimensions))
+
+    # F = fft(X,[],dim) and F = fft(X,n,dim) applies the FFT operation across the dimension dim.
+    # Python: F = np.fftn(a=input_shifted,axes=0)
+    F = np.fft.fftn(a=input_shifted, axes=[0])
+
+    # So we are indexing array F using boolean not mask, and setting those values of F to zero, so the others pass thru
+    # Python: F[ np.logical_not(mask) ]
+    F[np.logical_not(mask)] = 0
+
+    # Get the real part of the inverse fourier transform of the filtered input
+    filtered = np.fft.ifftn(a=F, axes=[0]).real
+
     filtered = filtered.astype(np.float32)
 
     filtered = shiftdim(filtered, dn - (dim - 1))
 
     return filtered
+#
+# def ideal_bandpassing(input, dim, wl, wh, fs):
+#     if dim > np.asarray(input.shape).ndim:
+#         print('Exceed maximum dimension')
+#     input_shifted = shiftdim(input, dim - 1)  # need to implement shift_dim
+#     dimension = np.asarray(input_shifted.shape)
+#
+#     n = dimension[0]
+#     dn = input_shifted.ndim
+#
+#     Freq = np.arange(n)
+#     Freq = Freq / n * fs  # removed minus 1 because the array start at 0 and matlab starts at 1 so in matalb yousould subtract by 1
+#     mask = (Freq > wl) & (Freq < wh)
+#     dimension[0] = 1
+#     mask = mask.flatten('F')
+#     # tmp = repmat(mask,dimension)
+#     mask = np.tile(mask, np.ndarray(dimension))
+#     F = np.fft.fft(input_shifted, axis=0)
+#     mask.resize(F.shape)
+#     F[~mask] = 0  # dont know what is this
+#
+#     filtered = np.fft.ifft(a=F, axis=0).real
+#     filtered = filtered.astype(np.float32)
+#
+#     filtered = shiftdim(filtered, dn - (dim - 1))
+#
+#     return filtered
 
 
 ### build_gdown_stack
@@ -72,7 +130,10 @@ def build_gdown_stack(vid_file, start_index, end_index, level):
     n_channels = 3
 
     suc, temp = vid.read()
-    frame = cv2.normalize(temp.astype('float'), None, 0.0, 1.0, cv2.NORM_MINMAX)  # im2double
+    temp = cv2.cvtColor(temp, cv2.COLOR_BGR2RGB)
+    # frame = cv2.normalize(temp.astype('float'), None, 0.0, 1.0, cv2.NORM_MINMAX)  # im2double
+    frame = im2double(temp)
+    frame = color.rgb2yiq(frame)
     frame = rgb2ntsc(frame)
 
     blurred = blur_dn_clr(frame, level)  # need to implement this
@@ -82,9 +143,11 @@ def build_gdown_stack(vid_file, start_index, end_index, level):
 
     for k in range(start_index, end_index + 1):
         succ, temp = vid.read()
-
-        frame = cv2.normalize(temp.astype('float'), None, 0.0, 1.0, cv2.NORM_MINMAX)  # im2double
-        frame = rgb2ntsc(frame)
+        temp = cv2.cvtColor(temp, cv2.COLOR_BGR2RGB)
+        frame = im2double(temp)
+        # frame = cv2.normalize(temp.astype('float'), None, 0.0, 1.0, cv2.NORM_MINMAX)  # im2double
+        # frame = rgb2ntsc(frame)
+        frame = color.rgb2yiq(frame)
         blurred = blur_dn_clr(frame, level)
         gdown_stack[k, :, :, :] = blurred
 
@@ -99,7 +162,7 @@ def im2double(im):
 
 
 def amplify_spatial_Gdown_temporal_ideal(vid_file, out_file, alpha, level, fl, fh, fs, chrom_attenuation):
-    out_name = "out1.avi"
+    out_name = "out2.avi"
     vid = cv2.VideoCapture(vid_file)
     fr = vid.get(cv2.CAP_PROP_FPS)
     len_ = int(vid.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -130,22 +193,18 @@ def amplify_spatial_Gdown_temporal_ideal(vid_file, out_file, alpha, level, fl, f
 
     for k in range(start_index, end_index + 1):
         succ, temp = vid.read()
-        temp = cv2.cvtColor(temp, cv2.COLOR_RGB2BGR)
+        temp = cv2.cvtColor(temp, cv2.COLOR_BGR2RGB)
         # frame = cv2.normalize(temp.astype('float'), None, 0.0, 1.0, cv2.NORM_MINMAX)  # im2double
-        # frame = im2double(temp)
-        # frame = rgb2ntsc(frame)
-        frame = rgb2ntsc(temp)
+        frame = im2double(temp)
+        frame = color.rgb2yiq(frame)
         filtered = (filtered_stack[k, :, :, :]).squeeze()
         filtered = cv2.resize(filtered, (vid_width, vid_height), 0, 0, cv2.INTER_LINEAR)
-
         filtered = filtered + frame
-
-        frame = ntsc2rgb(filtered)
-
+        frame = color.yiq2rgb(filtered)
+        frame *= 255
         frame = np.clip(frame, 0, 255)
         frame = cv2.convertScaleAbs(frame)
-
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         vid_out.write(frame)
 
     logging.info('Finished')
@@ -290,13 +349,13 @@ def blur_dn(im, nlevs=1, filt='binom5'):
 
 def blur_dn_clr(im, n_levs=1, filt='binom5'):
     # tmp = pt.blurDn(im[:,:,0],nlevs,filt)
+    # tmp = pt.blurDn(im[:, :, 0].copy(), n_levs, filt)
     tmp = blur_dn(im[:, :, 0].copy(), n_levs, filt)
     out = np.zeros((tmp.shape[0], tmp.shape[1], im.shape[2]))
     out[:, :, 0] = tmp
     for clr in range(1, im.shape[2]):
-        # out[:, :, clr] = pt.blur_dn(im[:, :, clr], nlevs, filt)
+        # out[:, :, clr] = pt.blur_dn(im[:, :, clr], n_levs, filt)
         out[:, :, clr] = blur_dn(im[:, :, clr], n_levs, filt)
-
     return out
 
 
@@ -458,4 +517,4 @@ else:
     logging.warning("Can't load in C code, something went wrong in your install!")
 
 # hpyer params here were taken from the matlab implementation but might need to be changed (there were several options and I took the face option)
-amplify_spatial_Gdown_temporal_ideal(video_location, "/", 100, 8, 60 / 60, 80 / 60, 30, 1)
+amplify_spatial_Gdown_temporal_ideal(video_location, "/", 50, 4, 50 / 60, 60 / 60, 30, 1)
